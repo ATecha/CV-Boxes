@@ -8,8 +8,46 @@ using namespace cv;
 #include <iostream>
 using namespace std;
 
-void processImage(Mat& image) {
+const int cornerBlockSize = 2;		// These two values seem pretty good.
+const int cornerApertureSize = 3;	// ""
+const double cornerK = 0.04;		// This one might need some finesse.
+const int cornerThreshold = 100;	// Much lower or higher seems to identify too many/too few circles respectively.
 
+Mat cornerDetector(Mat& image) {
+	Mat result = Mat::zeros(image.size(), CV_32FC1);
+
+	Mat result_scaled;
+	cornerHarris(image, result, cornerBlockSize, cornerApertureSize, cornerK);
+	normalize(result, result, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
+	convertScaleAbs( result, result_scaled );
+
+	for (int i = 0; i < result.rows; i++)
+	{
+		for (int j = 0; j < result.cols; j++)
+		{
+			if ((int)result.at<float>(i, j) > cornerThreshold)
+			{
+				circle(result_scaled, Point(j, i), 5, Scalar(0), 2, 8, 0);
+			}
+		}
+	}
+
+	return result_scaled;
+}
+
+Mat grayscaleImage(Mat& image) {
+	Mat result(image);
+
+	cvtColor(result, result, COLOR_BGR2GRAY);
+	return result;
+}
+
+void processImage(Mat& image) {
+	Mat result = grayscaleImage(image);
+	imwrite("grayscale.jpg", result);
+
+	result = cornerDetector(result);
+	imwrite("cornerHarris.jpg", result);
 }
 
 int main(int argc, const char* const argv[]) {
@@ -26,6 +64,7 @@ int main(int argc, const char* const argv[]) {
 			else {
 				processImage(inputImage);
 				cout << "Processed '" << argv[index] << "' successfully." << endl;
+				cout << endl;
 			}
 		}
 	} else { // Process test.jpg if no files are specified.
