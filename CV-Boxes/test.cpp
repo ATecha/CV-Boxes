@@ -33,6 +33,34 @@ void displayWindow(string name, Mat& const image) {
 	waitKey(0);
 }
 
+// Canny Edge Detection Method - Returns an image with white edges.
+/////////////////////////////////////////////////////////////////////////////////
+Mat cannyEdges(Mat& image) {
+	Mat result(image);
+	
+	Canny(result, result, 25, 200, 3);
+	return result;
+}
+
+// Contour Detection Method - Returns an image with highlighted contours.
+/////////////////////////////////////////////////////////////////////////////////
+Mat contourDetector(Mat& image) {
+	Mat result = Mat::zeros(image.size(), CV_8UC3);
+	RNG rng(12345);
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
+	findContours(image, contours, hierarchy, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+	
+	for (int i = 0; i < contours.size(); i++)
+	{
+		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+		drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
+	}
+	
+	return result;
+}
+
 // Corner Detector Method - Returns an image with highlighted corners. ** Not Working Well **
 /////////////////////////////////////////////////////////////////////////////////
 Mat cornerDetector(Mat& image) {
@@ -75,26 +103,14 @@ Mat grayscaleImage(Mat& image) {
 	return result;
 }
 
-// helper function:
-// finds a cosine of angle between vectors
-// from pt0->pt1 and from pt0->pt2
-static double angle(Point pt1, Point pt2, Point pt0)
-{
-	double dx1 = pt1.x - pt0.x;
-	double dy1 = pt1.y - pt0.y;
-	double dx2 = pt2.x - pt0.x;
-	double dy2 = pt2.y - pt0.y;
-	return (dx1*dx2 + dy1 * dy2) / sqrt((dx1*dx1 + dy1 * dy1)*(dx2*dx2 + dy2 * dy2) + 1e-10);
-}
-
 // Process Image Method - Performs a series of OpenCV Actions on the image.
 /////////////////////////////////////////////////////////////////////////////////
 void processImage(Mat& image) {
 	Mat result = grayscaleImage(image);
 	displayWindow("grayscale", result);
 
-	//result = gaussianBlur(result);
-	//displayWindow("gaussianBlur", result);
+	// result = gaussianBlur(result);
+	// displayWindow("gaussianBlur", result);
 
 	//maybe up the contrast first?
 	result.convertTo(result, CV_8U, 1, -100); //increase saturation
@@ -102,26 +118,11 @@ void processImage(Mat& image) {
 	result.convertTo(result, -1, 2, 0); //increase contrast
 	displayWindow("contrast", result);
 
-	//Canny(grey, grey, 25, 100, 3);
-	Canny(result, result, 25, 200, 3);
-	displayWindow("canny2", result);
+	result = cannyEdges(result);
+	displayWindow("canny", result);
 
-
-	// Contour Matching
-	///////////////////////////////////////////////////////
-	RNG rng(12345);
-	vector<vector<Point> > contours;
-	vector<Vec4i> hierarchy;
-	findContours(result, contours, hierarchy, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0));
-
-	Mat drawing = Mat::zeros(result.size(), CV_8UC3);
-	for (int i = 0; i < contours.size(); i++)
-	{
-		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-		drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, Point());
-	}
-	displayWindow("squares", drawing);
-	///////////////////////////////////////////////////////
+	result = contourDetector(result);
+	displayWindow("contour", result);
 
 
 	// result = cornerDetector(result);
