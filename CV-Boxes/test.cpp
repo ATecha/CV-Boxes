@@ -85,6 +85,7 @@ Mat bilat(Mat& image, int count = 1, int diameter = 3, double sigma = 50.0) {
 
 
 // Desaturate Method - Returns a (de)saturated copy of the image.
+// Value - Saturation intensity (can be negative).
 /////////////////////////////////////////////////////////////////////////////////
 Mat saturate(Mat& image, int value = 100) {
 	Mat result = image.clone();
@@ -95,6 +96,8 @@ Mat saturate(Mat& image, int value = 100) {
 
 
 // Contrast Method - Returns a copy of the image with adjusted contrast.
+// Parameters:
+// Value - Contrast intensity (can be negative).
 /////////////////////////////////////////////////////////////////////////////////
 Mat contrast(Mat& image, int value = 2) {
 	Mat result = image.clone();
@@ -126,19 +129,6 @@ Mat laplacian(Mat& image, int kSize = 3) {
 	Mat result = image.clone();
 
 	Laplacian(result, result, CV_8U, kSize);
-	return result;
-}
-
-
-// Sobel Method - Returns an image with Laplacian edges.
-// Parameters:
-// Depth - Desired depth of the destination image.
-// kSize - Aperture size used to compute the second-derivative filters. The size must be positive and odd.
-/////////////////////////////////////////////////////////////////////////////////
-Mat sobel(Mat& image, int sigma = 2, int kSize = 3) {
-	Mat result = image.clone();
-
-	Sobel(result, result, CV_8U, sigma, sigma, kSize);
 	return result;
 }
 
@@ -278,36 +268,34 @@ void processImage(Mat& image, string filename) {
 	// display(filename + "_gray", result);
 
 	// Saturation/Contrast Pass
-	result = saturate(result, -75);		// Decrease Saturation	- Can pass in second parameter as saturation amount.
-	result = contrast(result, 2);		// Increase Contrast	- Can pass in second parameter as contrast amount.
+	result = saturate(result, -100);		// Decrease Saturation	- Can pass in second parameter as saturation amount.
+	result = contrast(result, 2.5);		// Increase Contrast	- Can pass in second parameter as contrast amount.
+	display(filename + "_satcon1", result);
 
 	// Median Blur
 	result = median(result, 5, 5);
 	display(filename + "_median", result);
 
 	// Bilat Blur
-	result = bilat(result, 5, 3, 200);
-	display(filename + "_bilat", result);
+	// result = bilat(result, 8, 4, 150);
+	// display(filename + "_bilat", result);
 
 	// Gaussian Blur
-	result = gaussian(result, 5, 2.0, Size(3,3));
-	display(filename + "_gauss", result);
+	// result = gaussian(result, 5, 2.0, Size(3,3));
+	// display(filename + "_gauss", result);
 
 	// Saturation/Contrast Pass
-	result = saturate(result, -100);	// Decrease Saturation
-	result = contrast(result, 2);		// Increase Contrast
+	// result = saturate(result, -100);	// Decrease Saturation
+	// result = contrast(result, 2);		// Increase Contrast
+	// display(filename + "_satcon2", result);
 
 	// Get Canny Edges
-	Mat cannyImg = canny(result);
+	Mat cannyImg = canny(result, 50, 80);
 	display(filename + "_canny", cannyImg);
 
 	// Get Laplacian Edges
-	Mat laplacianImg = laplacian(result);
+	Mat laplacianImg = laplacian(result, 5);
 	display(filename + "_laplacian", laplacianImg);
-
-	// Get Sobel Edges
-	Mat sobelImg = sobel(result);
-	display(filename + "_sobel", sobelImg);
 
 	//// Get Contours from Canny Edges
 	//Mat contourImg = contour(laplacianImg);
