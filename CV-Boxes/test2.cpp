@@ -59,7 +59,7 @@ Mat cornerDetector(Mat& image) {
 //PRE: image is in the same location as this program
 //IMAGE PRECONDITIONS: (all conditions we require for the box counting to work, such as angle, perspective, etc)
 //POST: 
-int main(int argc, const char* argv[]) {
+int main2(int argc, const char* argv[]) {
 
 	//testing with: cube1.jpg, full-15.jpg, full-72.jpg
 	Mat input = imread("full-72.jpg");
