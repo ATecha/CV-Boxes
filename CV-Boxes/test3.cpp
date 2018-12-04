@@ -31,20 +31,35 @@ int main(int argc, const char* argv[]) {
 	cvtColor(grey, grey, COLOR_BGR2GRAY);
 
 	//maybe up the contrast first?
-	grey.convertTo(grey, CV_8U, 1, -100); //increase saturation
-	display("saturated", grey);
-	grey.convertTo(grey, -1, 2, 0); //increase contrast
-	display("contrast", grey);
+	grey.convertTo(grey, CV_8U, 1, -75); //decrease saturation
+	//display("saturated", grey);
+	grey.convertTo(grey, CV_8U, 2, 0); //increase contrast
+	//display("contrast", grey);
+
+	//second pass
+	grey.convertTo(grey, CV_8U, 1, -100); //decrease saturation
+	//display("saturated2", grey);
+	grey.convertTo(grey, CV_8U, 2, 0); //increase contrast
+	//display("contrast2", grey);
+
+	//try blurring?
+	//blurring helps, since adjusting the saturation and contrast magnifies noise
+	double sigma = 1.0;
+	GaussianBlur(grey, grey, Size(3,3), sigma, sigma, 4);
+	//display("blur", grey);
 
 	//Canny(grey, grey, 25, 100, 3);
-	Canny(grey, grey, 25, 200, 3);
+	Canny(grey, grey, 75, 110, 3);
 	display("canny2", grey);
 
 	Mat color_out;
 	cvtColor(grey, color_out, COLOR_GRAY2BGR);
 
 	vector<Vec2f> lines;
-	HoughLines(grey, lines, 1, CV_PI / 180, 150, 0, 0); //in, lines out, rho, theta, threshold, srn, stn, min theta, max theta
+	double rho = 1.0; //distance resolution of the accumulator, in pixels
+	double theta = 3 * CV_PI / 180; //angle resolution of the accumulator, in radians ( n * pi/180 where n is degrees)
+	int threshold = 150; //accumulator threshold param - only lines with at least this many votes get returned
+	HoughLines(grey, lines, rho, theta, threshold, 0, 0); //in, lines out, rho, theta, threshold, srn, stn, min theta, max theta
 
 	//from https://docs.opencv.org/master/d5/df9/samples_2cpp_2tutorial_code_2ImgTrans_2houghlines_8cpp-example.html#a8
 	// Draw the lines
