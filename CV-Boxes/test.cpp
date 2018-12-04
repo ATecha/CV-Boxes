@@ -8,11 +8,31 @@ using namespace cv;
 #include <iostream>
 using namespace std;
 
+// Harris Corner Detector Parameters
 const int cornerBlockSize = 2;		// These two values seem pretty good.
 const int cornerApertureSize = 3;	// ""
 const double cornerK = 0.04;		// This one might need some finesse.
-const int cornerThreshold = 100;	// Much lower or higher seems to identify too many/too few circles respectively.
+const int cornerThreshold = 120;	// Much lower or higher seems to identify too many/too few circles respectively.
 
+
+// Gaussian Blur Parameters
+const double sigma = 0.75;			// sigma in x and y for gaussian blur
+const Size kSize = Size(11, 11);	// kernel size for gaussian blur
+
+// Display Window Method - Pops up a window with the image and outputs a file by name.
+/////////////////////////////////////////////////////////////////////////////////
+void displayWindow(string name, Mat& const image) {
+	namedWindow(name, WINDOW_KEEPRATIO);
+	//resizeWindow("Grey", 500, 500);
+	imshow(name, image);
+	string filename = name + ".jpg";
+	imwrite(filename, image);
+	std::cout << "Saved as " << filename << std::endl;
+	waitKey(0);
+}
+
+// Corner Detector Method - Returns an image with highlighted corners. ** Not Working Well **
+/////////////////////////////////////////////////////////////////////////////////
 Mat cornerDetector(Mat& image) {
 	Mat result = Mat::zeros(image.size(), CV_32FC1);
 
@@ -35,6 +55,17 @@ Mat cornerDetector(Mat& image) {
 	return result_scaled;
 }
 
+// Gaussian Blur Method - Returns a Gaussian Blur of the image.
+/////////////////////////////////////////////////////////////////////////////////
+Mat gaussianBlur(Mat& image) {
+	Mat result(image);
+
+	GaussianBlur(result, result, kSize, sigma, sigma, 4);
+	return result;
+}
+
+// Grayscale Image Method - Returns a Grayscale Copy of the image.
+/////////////////////////////////////////////////////////////////////////////////
 Mat grayscaleImage(Mat& image) {
 	Mat result(image);
 
@@ -42,14 +73,21 @@ Mat grayscaleImage(Mat& image) {
 	return result;
 }
 
+// Process Image Method - Performs a series of OpenCV Actions on the image.
+/////////////////////////////////////////////////////////////////////////////////
 void processImage(Mat& image) {
 	Mat result = grayscaleImage(image);
-	imwrite("grayscale.jpg", result);
+	displayWindow("grayscale", result);
 
-	result = cornerDetector(result);
-	imwrite("cornerHarris.jpg", result);
+	result = gaussianBlur(result);
+	displayWindow("gaussianBlur", result);
+
+	// result = cornerDetector(result);
+	// displayWindow("cornerHarris", result);
 }
 
+// Main - Takes images as command line arguments, one at a time.
+/////////////////////////////////////////////////////////////////////////////////
 int main(int argc, const char* const argv[]) {
 
 	//-- Branch Based on Command Line Arguments --//
