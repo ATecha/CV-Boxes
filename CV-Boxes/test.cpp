@@ -38,8 +38,9 @@ Mat grayscale(Mat& image) {
 
 // Gaussian Blur Method - Returns a Gaussian Blur of the image.
 // Sigma - Gaussian kernel standard deviation (in X/Y).
-// kSize - Gaussian kernel size. ksize.width and ksize.height can differ but they both must be positive and odd. Or, they can be zero's and then they are computed from sigma.
-// BorderType - Pixel extrapolation method. Default 4. Probably don't change this.
+// kSize - Gaussian kernel size. ksize.width and ksize.height can differ but they both must be positive and odd.
+//		   Or, they can be zero's and then they are computed from sigma.
+// BorderType - Pixel extrapolation method. Default 4. Probably don't need to change this.
 /////////////////////////////////////////////////////////////////////////////////
 Mat gaussian(Mat& image, double sigma = 1.0, Size kSize = Size(3, 3), int borderType = 4) {
 	Mat result(image);
