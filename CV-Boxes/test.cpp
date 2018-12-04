@@ -29,23 +29,57 @@ void display(string name, Mat& const image) {
 // Grayscale Image Method - Returns a Grayscale Copy of the image.
 /////////////////////////////////////////////////////////////////////////////////
 Mat grayscale(Mat& image) {
-	Mat result(image);
+	Mat result = image.clone();
 
 	cvtColor(result, result, COLOR_BGR2GRAY);
+	result.convertTo(result, CV_8U, 1, 0);
 	return result;
 }
 
 
-// Gaussian Blur Method - Returns a Gaussian Blur of the image.
+// Gaussian Blur Method - Returns a Gaussian Blur copy of the image.
+// Count - Numer of times to repeat the blur.
 // Sigma - Gaussian kernel standard deviation (in X/Y).
 // kSize - Gaussian kernel size. ksize.width and ksize.height can differ but they both must be positive and odd.
 //		   Or, they can be zero's and then they are computed from sigma.
 // BorderType - Pixel extrapolation method. Default 4. Probably don't need to change this.
 /////////////////////////////////////////////////////////////////////////////////
-Mat gaussian(Mat& image, double sigma = 1.0, Size kSize = Size(3, 3), int borderType = 4) {
-	Mat result(image);
+Mat gaussian(Mat& image, int count = 1, double sigma = 1.0, Size kSize = Size(3, 3), int borderType = 4) {
+	Mat result = image.clone();
 
-	GaussianBlur(result, result, kSize, sigma, sigma, borderType);
+	for (int i = 0; i < count; i++) {
+		GaussianBlur(result, result, kSize, sigma, sigma, borderType);
+	}
+	return result;
+}
+
+
+// Median Blur Method - Returns a Median Blur copy of the image.
+// Count - Numer of times to repeat the blur.
+// kSize - Aperture linear size; it must be odd and greater than 1.
+/////////////////////////////////////////////////////////////////////////////////
+Mat median(Mat& image, int count = 1, int kSize = 3) {
+	Mat result = image.clone();
+
+	for (int i = 0; i < count; i++) {
+		medianBlur(result, result, kSize);
+	}
+	return result;
+}
+
+
+// Bilateral Filtering Method - Returns a Bilateral Filtered copy of the image.
+// Count - Numer of times to repeat the blur.
+// Diameter - Diameter of each pixel neighborhood that is used during filtering.
+// Sigma - Filter strength.
+// BorderType - Pixel extrapolation method. Default 4. Probably don't need to change this.
+/////////////////////////////////////////////////////////////////////////////////
+Mat bilat(Mat& image, int count = 1, int diameter = 3, double sigma = 50.0) {
+	Mat result = image.clone();
+
+	for (int i = 0; i < count; i++) {
+		bilateralFilter(image, result, diameter, sigma, sigma);
+	}
 	return result;
 }
 
@@ -53,7 +87,7 @@ Mat gaussian(Mat& image, double sigma = 1.0, Size kSize = Size(3, 3), int border
 // Desaturate Method - Returns a (de)saturated copy of the image.
 /////////////////////////////////////////////////////////////////////////////////
 Mat saturate(Mat& image, int value = 100) {
-	Mat result(image);
+	Mat result = image.clone();
 
 	result.convertTo(result, CV_8U, 1, value);
 	return result;
@@ -63,23 +97,48 @@ Mat saturate(Mat& image, int value = 100) {
 // Contrast Method - Returns a copy of the image with adjusted contrast.
 /////////////////////////////////////////////////////////////////////////////////
 Mat contrast(Mat& image, int value = 2) {
-	Mat result(image);
+	Mat result = image.clone();
 
 	result.convertTo(result, CV_8U, value, 0);
 	return result;
 }
 
 
-// Canny Edge Detection Method - Returns an image with white edges.
+// Canny Edge Detection Method - Returns an image with Canny edges.
 // Parameters:
 // Threshold 1 - First threshold for the hysteresis procedure.
 // Threshold 2 - Second threshold for the hysteresis procedure.
 // ApertureSize - Aperture size for the Sobel operator.
 /////////////////////////////////////////////////////////////////////////////////
 Mat canny(Mat& image, double threshold1 = 75, double threshold2 = 110, int apertureSize = 3) {
-	Mat result(image);
+	Mat result = image.clone();
 	
 	Canny(result, result, threshold1, threshold2, apertureSize);
+	return result;
+}
+
+// Laplacian Method - Returns an image with Laplacian edges.
+// Parameters:
+// Depth - Desired depth of the destination image.
+// kSize - Aperture size used to compute the second-derivative filters. The size must be positive and odd.
+/////////////////////////////////////////////////////////////////////////////////
+Mat laplacian(Mat& image, int kSize = 3) {
+	Mat result = image.clone();
+
+	Laplacian(result, result, CV_8U, kSize);
+	return result;
+}
+
+
+// Sobel Method - Returns an image with Laplacian edges.
+// Parameters:
+// Depth - Desired depth of the destination image.
+// kSize - Aperture size used to compute the second-derivative filters. The size must be positive and odd.
+/////////////////////////////////////////////////////////////////////////////////
+Mat sobel(Mat& image, int sigma = 2, int kSize = 3) {
+	Mat result = image.clone();
+
+	Sobel(result, result, CV_8U, sigma, sigma, kSize);
 	return result;
 }
 
@@ -118,6 +177,19 @@ Mat hough(Mat& image, double rho = 1.0, double theta = 3, int threshold = 150) {
 }
 
 
+// Helper Function From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
+// Finds a cosine of angle between vectors.
+// From pt0->pt1 and From pt0->pt2
+static double angle(Point pt1, Point pt2, Point pt0)
+{
+	double dx1 = pt1.x - pt0.x;
+	double dy1 = pt1.y - pt0.y;
+	double dx2 = pt2.x - pt0.x;
+	double dy2 = pt2.y - pt0.y;
+	return (dx1*dx2 + dy1 * dy2) / sqrt((dx1*dx1 + dy1 * dy1)*(dx2*dx2 + dy2 * dy2) + 1e-10);
+}
+
+
 // Contour Detection Method - Returns an image with highlighted contours.
 /////////////////////////////////////////////////////////////////////////////////
 Mat contour(Mat& image) {
@@ -125,13 +197,40 @@ Mat contour(Mat& image) {
 	RNG rng(12345);
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
-	findContours(image, contours, hierarchy, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0));
+	findContours(image, contours, hierarchy, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0)); // CHAIN_APPROX_NONE CHAIN_APPROX_SIMPLE CHAIN_APPROX_TC89_KCOS CHAIN_APPROX_TC89_L1
 
-	
+	vector<Point> approx;
 	for (int i = 0; i < contours.size(); i++)
 	{
 		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 		drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
+
+		//// From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
+		///////
+		//approxPolyDP(contours[i], approx, arcLength(contours[i], true)*0.02, true);
+
+		//if (approx.size() == 4 &&
+		//	fabs(contourArea(approx)) > 1000 &&
+		//	isContourConvex(approx))
+		//{
+		//	double maxCosine = 0;
+
+		//	for (int j = 2; j < 5; j++)
+		//	{
+		//		// find the maximum cosine of the angle between joint edges
+		//		double cosine = fabs(angle(approx[j % 4], approx[j - 2], approx[j - 1]));
+		//		maxCosine = MAX(maxCosine, cosine);
+		//	}
+
+		//	// if cosines of all angles are small
+		//	// (all angles are ~90 degree) then write quandrange
+		//	// vertices to resultant sequence
+		//	if (maxCosine < 0.3) {
+		//		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+		//		drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
+		//	}
+		//}
+		
 	}
 	
 	return result;
@@ -178,30 +277,49 @@ void processImage(Mat& image, string filename) {
 	Mat result = grayscale(image);
 	// display(filename + "_gray", result);
 
+	// Saturation/Contrast Pass
 	result = saturate(result, -75);		// Decrease Saturation	- Can pass in second parameter as saturation amount.
 	result = contrast(result, 2);		// Increase Contrast	- Can pass in second parameter as contrast amount.
+
+	// Median Blur
+	result = median(result, 5, 5);
+	display(filename + "_median", result);
+
+	// Bilat Blur
+	result = bilat(result, 5, 3, 200);
+	display(filename + "_bilat", result);
+
+	// Gaussian Blur
+	result = gaussian(result, 5, 2.0, Size(3,3));
+	display(filename + "_gauss", result);
+
+	// Saturation/Contrast Pass
 	result = saturate(result, -100);	// Decrease Saturation
 	result = contrast(result, 2);		// Increase Contrast
 
-	// Gaussian Blur
-	result = gaussian(result, 1.0, Size(3,3));
-	display(filename + "_clean", result);
-
 	// Get Canny Edges
-	result = canny(result);
-	display(filename + "_edges", result);
+	Mat cannyImg = canny(result);
+	display(filename + "_canny", cannyImg);
 
-	// Get Contours from Canny Edges
-	Mat contourImg = contour(result);
-	display(filename + "_contours", contourImg);
+	// Get Laplacian Edges
+	Mat laplacianImg = laplacian(result);
+	display(filename + "_laplacian", laplacianImg);
 
-	// Get Hough Lines from Canny Edges
-	Mat lineImg = hough(result);
-	display(filename + "_lines", lineImg);
+	// Get Sobel Edges
+	Mat sobelImg = sobel(result);
+	display(filename + "_sobel", sobelImg);
 
-	// Get Corners from Canny Edges
-	Mat cornerImg = corner(result);
-	display(filename + "_corners", cornerImg);
+	//// Get Contours from Canny Edges
+	//Mat contourImg = contour(laplacianImg);
+	//display(filename + "_contours", contourImg);
+
+	//// Get Hough Lines from Canny Edges
+	//Mat lineImg = hough(laplacianImg);
+	//display(filename + "_lines", lineImg);
+
+	//// Get Corners from Canny Edges
+	//Mat cornerImg = corner(laplacianImg);
+	//display(filename + "_corners", cornerImg);
 }
 
 
