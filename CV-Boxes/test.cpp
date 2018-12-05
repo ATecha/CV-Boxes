@@ -269,6 +269,7 @@ Mat hough(Mat& image, double rho = 1.0, double theta = 3, int threshold = 150) {
 //// Helper Function From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
 //// Finds a cosine of angle between vectors.
 //// From pt0->pt1 and From pt0->pt2
+// ~~~ This didn't get used in the end, was part of finding square contours.
 //static double angle(Point pt1, Point pt2, Point pt0)
 //{
 //	double dx1 = pt1.x - pt0.x;
@@ -278,6 +279,8 @@ Mat hough(Mat& image, double rho = 1.0, double theta = 3, int threshold = 150) {
 //	return (dx1*dx2 + dy1 * dy2) / sqrt((dx1*dx1 + dy1 * dy1)*(dx2*dx2 + dy2 * dy2) + 1e-10);
 //}
 
+// Morph Method - Returns an image morphed by morphology kernel.
+/////////////////////////////////////////////////////////////////////////////////
 Mat morph(Mat& image) {
 	Mat result = image.clone();
 
@@ -312,7 +315,9 @@ Mat dilateImg(Mat& image, int count = 1, int dilationSize = 0) {
 Mat contour(Mat& image) {
 	Mat source = image.clone();
 	source = dilateImg(source, 1, 10);
-	//source = morph(source);
+	//source = morph(source); ~~~ Tried using morph to combine fragment contours,
+							//~~~ but it turned out dilate was sufficient and didn't
+							//~~~ round the rectangles.
 
 	Mat result = Mat::zeros(source.size(), CV_8UC3);
 	RNG rng(12345);
@@ -320,12 +325,16 @@ Mat contour(Mat& image) {
 	vector<Vec4i> hierarchy;
 	findContours(source, contours, hierarchy, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0)); // CHAIN_APPROX_NONE CHAIN_APPROX_SIMPLE CHAIN_APPROX_TC89_KCOS CHAIN_APPROX_TC89_L1
 
-	vector<double> lengths(contours.size());
+	typedef std::vector<double> VecDoub;
+	VecDoub lengths;
+
 	for (int i = 0; i < contours.size(); i++) {
-		cout << "Length to push: " << arcLength(contours[i], true) << endl;
-		lengths.push_back(arcLength(contours[i], true));
+		// cout << "Length to push: " << arcLength(contours[i], true) << endl;
+		lengths.push_back((int)arcLength(contours[i], true));
 	}
+
 	sort(lengths.begin(), lengths.end());
+
 	double medianLength = lengths[lengths.size() / 2];
 	cout << "Median Arclength: " << medianLength << endl;
 
@@ -333,69 +342,85 @@ Mat contour(Mat& image) {
 	// vector<Rect> boundRect(contours.size());
 	// vector<Point> approx;
 
-	double tolerance = 20; // How forgiving is the median culling?
+	double tolerance = 450; // How forgiving is the median culling?
+						// ~~~ This doesn't work for every image.
+						// ~~~ Was trying to find the most common (box)
+						// ~~~ contours and eliminate the rest.
 
-	for (int i = 0; i < contours.size(); i++)
-	{
+	for (int i = 0; i < contours.size(); i++) {
 		// cout << contours[i] << endl;
 		// approxPolyDP(contours[i], contours_poly[i], 3, true);
 		// boundRect[i] = boundingRect(contours_poly[i]);
-		if (!((arcLength(contours[i], true) < medianLength - tolerance) || (arcLength(contours[i], true) < medianLength - tolerance))) {
-			cout << "Length: " << arcLength(contours[i], true) << endl;
+		if ((arcLength(contours[i], true) > medianLength + tolerance)) {
+			// cout << "Length: " << arcLength(contours[i], true) << endl;
 			Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 			drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
+
+			// ~~~ Was trying to work out how to produce lines that represent the sides of the contour, but only
+			// ~~~ at the points where direction changed rapidly.
+			//double lastSlope = 0;
+			//double slopeTolerance = 5;
+			//for (int j = 0; j < contours[i].size() - 1; j++) {
+			//	vector<Point> pair;
+			//	// Vec4f pairLine;
+			//	pair.push_back(contours[i][j]);
+			//	pair.push_back(contours[i][j + 1]);
+
+			//	double currentSlope = pair[1].y - pair[0].y / pair[1].x - pair[0].x;
+			//	cout << currentSlope << endl;
+
+			//	if (currentSlope < lastSlope - slopeTolerance || currentSlope > lastSlope + slopeTolerance) {
+			//		// cout << "Slope Changed Beyond Tolerance" << endl;
+			//		lastSlope = currentSlope;
+			//		//circle(result, Point(i, j), 5, Scalar(0), 2, 8, 0);
+			//	}
+			//}
+
+				//fitLine(contours[i], pairLine, DIST_L2, 0, 0.01, 0.01);
+
+				// ~~~ Was trying to draw lines across the contours and then combine like lines to
+				// ~~~ get a count that way.
+				//// Source from: https://stackoverflow.com/questions/2750867/draw-fitted-line-opencv
+				//double mult = max(result.rows, result.cols);
+				//// calculate start point
+				//Point startPoint;
+				//startPoint.x = pairLine[2] - mult * pairLine[0]; // x0
+				//startPoint.y = pairLine[3] - mult * pairLine[1]; // y0
+				//// calculate end point
+				//Point endPoint;
+				//endPoint.x = pairLine[2] + mult * pairLine[0]; // x[1]
+				//endPoint.y = pairLine[3] + mult * pairLine[1]; // y[1]
+
+				//float m = 1000;
+				//line(result, startPoint, endPoint, Scalar(255, 255, 0), 1);
+
+			//// From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
+			// ~~~ Was trying to detect squares/rectangles in the contour shapes, but this
+			// ~~~ one isn't skew invarient and only works for perfect squares.
+			//approxPolyDP(contours[i], approx, arcLength(contours[i], true)*0.02, true);
+
+			//if (approx.size() == 4 &&
+			//	fabs(contourArea(approx)) > 1000 &&
+			//	isContourConvex(approx))
+			//{
+			//	double maxCosine = 0;
+
+			//	for (int j = 2; j < 5; j++)
+			//	{
+			//		// find the maximum cosine of the angle between joint edges
+			//		double cosine = fabs(angle(approx[j % 4], approx[j - 2], approx[j - 1]));
+			//		maxCosine = MAX(maxCosine, cosine);
+			//	}
+
+			//	// if cosines of all angles are small
+			//	// (all angles are ~90 degree) then write quandrange
+			//	// vertices to resultant sequence
+			//	if (maxCosine < 0.3) {
+			//		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+			//		drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
+			//	}
+			//}
 		}
-		//rectangle(result, boundRect[i].tl(), boundRect[i].br(), color, 2);
-		
-		//// Draw lines along contour. Does what it says it does, but sucks.
-		//for (int j = 0; j < contours[i].size() - 1; j++) {
-		//	vector<Point> pair;
-		//	Vec4f pairLine;
-		//	pair.push_back(contours[i][j]);
-		//	pair.push_back(contours[i][j + 1]);
-		//	fitLine(contours[i], pairLine, DIST_L2, 0, 0.01, 0.01);
-
-		//	// Source from: https://stackoverflow.com/questions/2750867/draw-fitted-line-opencv
-		//	double mult = max(result.rows, result.cols);
-		//	// calculate start point
-		//	Point startPoint;
-		//	startPoint.x = pairLine[2] - mult * pairLine[0]; // x0
-		//	startPoint.y = pairLine[3] - mult * pairLine[1]; // y0
-		//	// calculate end point
-		//	Point endPoint;
-		//	endPoint.x = pairLine[2] + mult * pairLine[0]; // x[1]
-		//	endPoint.y = pairLine[3] + mult * pairLine[1]; // y[1]
-
-		//	float m = 1000;
-		//	line(result, startPoint, endPoint, Scalar(255, 255, 0), 1);
-		//}
-
-		//// From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
-		/////// ** Only works for perfect squares.
-		//approxPolyDP(contours[i], approx, arcLength(contours[i], true)*0.02, true);
-
-		//if (approx.size() == 4 &&
-		//	fabs(contourArea(approx)) > 1000 &&
-		//	isContourConvex(approx))
-		//{
-		//	double maxCosine = 0;
-
-		//	for (int j = 2; j < 5; j++)
-		//	{
-		//		// find the maximum cosine of the angle between joint edges
-		//		double cosine = fabs(angle(approx[j % 4], approx[j - 2], approx[j - 1]));
-		//		maxCosine = MAX(maxCosine, cosine);
-		//	}
-
-		//	// if cosines of all angles are small
-		//	// (all angles are ~90 degree) then write quandrange
-		//	// vertices to resultant sequence
-		//	if (maxCosine < 0.3) {
-		//		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-		//		drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
-		//	}
-		//}
-		
 	}
 	
 	return result;
@@ -434,9 +459,6 @@ Mat corner(Mat& image, int blockSize = 5, int apertureSize = 3, double k = 0.1, 
 
 
 // Process Image Method - Performs a series of OpenCV Actions on the image.
-//					****************************************
-//					*** This is where the magic happens! ***
-//					****************************************
 /////////////////////////////////////////////////////////////////////////////////
 void processImage(Mat& image, string filename) {
 	Mat result = grayscale(image);
