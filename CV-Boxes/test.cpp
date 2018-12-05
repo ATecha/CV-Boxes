@@ -209,8 +209,25 @@ Mat contour(Mat& image) {
 	vector<Point> approx;
 	for (int i = 0; i < contours.size(); i++)
 	{
+		// cout << contours[i] << endl;
 		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 		drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
+
+		//approxPolyDP(contours[i], approx, arcLength(contours[i], true)*0.02, false);
+		//if (isContourConvex(approx)) {
+		//	double maxCosine = 0;
+
+		//	for (int j = 2; j < 5; j++)
+		//	{
+		//		// find the maximum cosine of the angle between joint edges
+		//		double cosine = fabs(angle(approx[j % 4], approx[j - 2], approx[j - 1]));
+		//		maxCosine = MAX(maxCosine, cosine);
+		//	}
+		//}
+
+		// Vec4f contourline;
+		// fitLine(contours, contourline, DIST_L2, 0, 0.01, 0.01);
+		// line(contours, Point(contourline[2], contourline[3]), Point(contourline[2] + contourline[0] * 5, contourline[3] + contourline[1] * 5), color);
 
 		//// From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
 		///////
@@ -251,7 +268,7 @@ Mat contour(Mat& image) {
 // K - Harris detector free parameter.
 // Threshold - Only circles corners with an intensity above this value.
 /////////////////////////////////////////////////////////////////////////////////
-Mat corner(Mat& image, int blockSize = 2, int apertureSize = 3, double k = 0.04, int threshold = 120) {
+Mat corner(Mat& image, int blockSize = 5, int apertureSize = 3, double k = 0.1, int threshold = 200) {
 
 	Mat result = Mat::zeros(image.size(), CV_32FC1);
 
@@ -286,7 +303,7 @@ void processImage(Mat& image, string filename) {
 
 	// Saturation/Contrast Pass
 	result = saturate(result, -50);		// Decrease Saturation	- Can pass in second parameter as saturation amount.
-	result = contrast(result, 1.5);		// Increase Contrast	- Can pass in second parameter as contrast amount.
+	result = contrast(result, 1);		// Increase Contrast	- Can pass in second parameter as contrast amount.
 	display(filename + "_satcon1", result);
 
 	// Median Blur
