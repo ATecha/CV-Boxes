@@ -15,14 +15,14 @@ using namespace std;
 // Display Window Method - Pops up a window with the image and outputs a file by name.
 /////////////////////////////////////////////////////////////////////////////////
 void display(string name, Mat& const image) {
-	 namedWindow(name, WINDOW_KEEPRATIO);		// Temporarily commented out for
-	 imshow(name, image);						// rapid multi-image processing.
+	// namedWindow(name, WINDOW_KEEPRATIO);		// Temporarily commented out for
+	// imshow(name, image);						// rapid multi-image processing.
 
 	string filename = name + ".jpg";
 	imwrite(filename, image);
 	cout << "Saved as " << filename << endl;
 
-	 waitKey(0);
+	// waitKey(0);
 }
 
 
@@ -246,6 +246,7 @@ Mat hough(Mat& image, double rho = 1.0, double theta = 3, int threshold = 150) {
 
 	//from https://docs.opencv.org/master/d5/df9/samples_2cpp_2tutorial_code_2ImgTrans_2houghlines_8cpp-example.html#a8
 	// Draw the lines
+	
 	/*
 	for (size_t i = 0; i < lines.size(); i++)
 	{
@@ -258,59 +259,119 @@ Mat hough(Mat& image, double rho = 1.0, double theta = 3, int threshold = 150) {
 		pt2.x = cvRound(x0 - 1000 * (-b));
 		pt2.y = cvRound(y0 - 1000 * (a));
 		line(result, pt1, pt2, Scalar(0, 0, 255), 3, LINE_AA); //this is the method that actually draws the lines
-	}*/
+	}
+	*/
 	
 	return result;
 }
 
 
-// Helper Function From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
-// Finds a cosine of angle between vectors.
-// From pt0->pt1 and From pt0->pt2
-static double angle(Point pt1, Point pt2, Point pt0)
-{
-	double dx1 = pt1.x - pt0.x;
-	double dy1 = pt1.y - pt0.y;
-	double dx2 = pt2.x - pt0.x;
-	double dy2 = pt2.y - pt0.y;
-	return (dx1*dx2 + dy1 * dy2) / sqrt((dx1*dx1 + dy1 * dy1)*(dx2*dx2 + dy2 * dy2) + 1e-10);
+//// Helper Function From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
+//// Finds a cosine of angle between vectors.
+//// From pt0->pt1 and From pt0->pt2
+//static double angle(Point pt1, Point pt2, Point pt0)
+//{
+//	double dx1 = pt1.x - pt0.x;
+//	double dy1 = pt1.y - pt0.y;
+//	double dx2 = pt2.x - pt0.x;
+//	double dy2 = pt2.y - pt0.y;
+//	return (dx1*dx2 + dy1 * dy2) / sqrt((dx1*dx1 + dy1 * dy1)*(dx2*dx2 + dy2 * dy2) + 1e-10);
+//}
+
+Mat morph(Mat& image) {
+	Mat result = image.clone();
+
+	Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(40, 40));
+	morphologyEx(result, result, cv::MORPH_CLOSE, structuringElement);
+
+	return result;
 }
 
+
+
+// Dilation Method - Returns an image with edge dilation.
+// Parameters:
+// Count - Numer of times to repeat the blur.
+// DilationSize - Size of dilation kernel. Must be odd.
+/////////////////////////////////////////////////////////////////////////////////
+Mat dilateImg(Mat& image, int count = 1, int dilationSize = 0) {
+	Mat result = image.clone();
+
+	Mat element = getStructuringElement(MORPH_RECT, // MORPH_CROSS, MORPH_ELLIPSE
+		Size(2 * dilationSize + 1, 2 * dilationSize + 1),
+		Point(dilationSize, dilationSize));
+	
+	for (int i = 0; i < count; i++) {
+		dilate(result, result, element);
+	}
+	return result;
+}
 
 // Contour Detection Method - Returns an image with highlighted contours.
 /////////////////////////////////////////////////////////////////////////////////
 Mat contour(Mat& image) {
-	Mat result = Mat::zeros(image.size(), CV_8UC3);
+	Mat source = image.clone();
+	source = dilateImg(source, 1, 10);
+	//source = morph(source);
+
+	Mat result = Mat::zeros(source.size(), CV_8UC3);
 	RNG rng(12345);
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
-	findContours(image, contours, hierarchy, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0)); // CHAIN_APPROX_NONE CHAIN_APPROX_SIMPLE CHAIN_APPROX_TC89_KCOS CHAIN_APPROX_TC89_L1
+	findContours(source, contours, hierarchy, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0)); // CHAIN_APPROX_NONE CHAIN_APPROX_SIMPLE CHAIN_APPROX_TC89_KCOS CHAIN_APPROX_TC89_L1
 
-	vector<Point> approx;
+	vector<double> lengths(contours.size());
+	for (int i = 0; i < contours.size(); i++) {
+		cout << "Length to push: " << arcLength(contours[i], true) << endl;
+		lengths.push_back(arcLength(contours[i], true));
+	}
+	sort(lengths.begin(), lengths.end());
+	double medianLength = lengths[lengths.size() / 2];
+	cout << "Median Arclength: " << medianLength << endl;
+
+	// vector<vector<Point> > contours_poly(contours.size());
+	// vector<Rect> boundRect(contours.size());
+	// vector<Point> approx;
+
+	double tolerance = 20; // How forgiving is the median culling?
+
 	for (int i = 0; i < contours.size(); i++)
 	{
 		// cout << contours[i] << endl;
-		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-		drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
+		// approxPolyDP(contours[i], contours_poly[i], 3, true);
+		// boundRect[i] = boundingRect(contours_poly[i]);
+		if (!((arcLength(contours[i], true) < medianLength - tolerance) || (arcLength(contours[i], true) < medianLength - tolerance))) {
+			cout << "Length: " << arcLength(contours[i], true) << endl;
+			Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+			drawContours(result, contours, i, color, 2, 8, hierarchy, 0, Point());
+		}
+		//rectangle(result, boundRect[i].tl(), boundRect[i].br(), color, 2);
+		
+		//// Draw lines along contour. Does what it says it does, but sucks.
+		//for (int j = 0; j < contours[i].size() - 1; j++) {
+		//	vector<Point> pair;
+		//	Vec4f pairLine;
+		//	pair.push_back(contours[i][j]);
+		//	pair.push_back(contours[i][j + 1]);
+		//	fitLine(contours[i], pairLine, DIST_L2, 0, 0.01, 0.01);
 
-		//approxPolyDP(contours[i], approx, arcLength(contours[i], true)*0.02, false);
-		//if (isContourConvex(approx)) {
-		//	double maxCosine = 0;
+		//	// Source from: https://stackoverflow.com/questions/2750867/draw-fitted-line-opencv
+		//	double mult = max(result.rows, result.cols);
+		//	// calculate start point
+		//	Point startPoint;
+		//	startPoint.x = pairLine[2] - mult * pairLine[0]; // x0
+		//	startPoint.y = pairLine[3] - mult * pairLine[1]; // y0
+		//	// calculate end point
+		//	Point endPoint;
+		//	endPoint.x = pairLine[2] + mult * pairLine[0]; // x[1]
+		//	endPoint.y = pairLine[3] + mult * pairLine[1]; // y[1]
 
-		//	for (int j = 2; j < 5; j++)
-		//	{
-		//		// find the maximum cosine of the angle between joint edges
-		//		double cosine = fabs(angle(approx[j % 4], approx[j - 2], approx[j - 1]));
-		//		maxCosine = MAX(maxCosine, cosine);
-		//	}
+		//	float m = 1000;
+		//	line(result, startPoint, endPoint, Scalar(255, 255, 0), 1);
 		//}
 
-		// Vec4f contourline;
-		// fitLine(contours, contourline, DIST_L2, 0, 0.01, 0.01);
-		// line(contours, Point(contourline[2], contourline[3]), Point(contourline[2] + contourline[0] * 5, contourline[3] + contourline[1] * 5), color);
-
 		//// From: https://github.com/opencv/opencv/blob/master/samples/cpp/squares.cpp
-		///////
+		/////// ** Only works for perfect squares.
 		//approxPolyDP(contours[i], approx, arcLength(contours[i], true)*0.02, true);
 
 		//if (approx.size() == 4 &&
