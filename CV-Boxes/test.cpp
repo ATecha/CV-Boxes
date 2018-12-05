@@ -120,6 +120,19 @@ Mat canny(Mat& image, double threshold1 = 75, double threshold2 = 110, int apert
 	return result;
 }
 
+// Cull Gray Method - Helper for Laplacian, removes gray values under a given intensity.
+// Parameters:
+// Threshold - Value below which values are changed to black.
+void cullGray(Mat& image, int threshold) {
+	for (int r = 0; r < image.rows; r++) {
+		for (int c = 0; c < image.cols; c++) {	// If average color intensity is below threshold...
+			if (image.at<uchar>(r, c) < threshold) {
+				image.at<uchar>(r, c) = 0;	// Paint it Black
+			}
+		}
+	}
+}
+
 // Laplacian Method - Returns an image with Laplacian edges.
 // Parameters:
 // Depth - Desired depth of the destination image.
@@ -129,6 +142,10 @@ Mat laplacian(Mat& image, int kSize = 3) {
 	Mat result = image.clone();
 
 	Laplacian(result, result, CV_8U, kSize);
+
+	// bilat(result, 3);
+	cullGray(result, 150);
+
 	return result;
 }
 
@@ -268,12 +285,12 @@ void processImage(Mat& image, string filename) {
 	// display(filename + "_gray", result);
 
 	// Saturation/Contrast Pass
-	result = saturate(result, -100);		// Decrease Saturation	- Can pass in second parameter as saturation amount.
-	result = contrast(result, 2.5);		// Increase Contrast	- Can pass in second parameter as contrast amount.
+	result = saturate(result, -50);		// Decrease Saturation	- Can pass in second parameter as saturation amount.
+	result = contrast(result, 1.5);		// Increase Contrast	- Can pass in second parameter as contrast amount.
 	display(filename + "_satcon1", result);
 
 	// Median Blur
-	result = median(result, 5, 5);
+	result = median(result, 3, 3);
 	display(filename + "_median", result);
 
 	// Bilat Blur
@@ -290,24 +307,24 @@ void processImage(Mat& image, string filename) {
 	// display(filename + "_satcon2", result);
 
 	// Get Canny Edges
-	Mat cannyImg = canny(result, 50, 80);
-	display(filename + "_canny", cannyImg);
+	// Mat cannyImg = canny(result, 50, 80);
+	// display(filename + "_canny", cannyImg);
 
 	// Get Laplacian Edges
 	Mat laplacianImg = laplacian(result, 5);
 	display(filename + "_laplacian", laplacianImg);
 
-	//// Get Contours from Canny Edges
-	//Mat contourImg = contour(laplacianImg);
-	//display(filename + "_contours", contourImg);
+	// Get Contours from Canny Edges
+	Mat contourImg = contour(laplacianImg);
+	display(filename + "_contours", contourImg);
 
-	//// Get Hough Lines from Canny Edges
-	//Mat lineImg = hough(laplacianImg);
-	//display(filename + "_lines", lineImg);
+	// Get Hough Lines from Canny Edges
+	Mat lineImg = hough(laplacianImg);
+	display(filename + "_lines", lineImg);
 
-	//// Get Corners from Canny Edges
-	//Mat cornerImg = corner(laplacianImg);
-	//display(filename + "_corners", cornerImg);
+	// Get Corners from Canny Edges
+	Mat cornerImg = corner(laplacianImg);
+	display(filename + "_corners", cornerImg);
 }
 
 
