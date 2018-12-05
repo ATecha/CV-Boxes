@@ -15,14 +15,14 @@ using namespace std;
 // Display Window Method - Pops up a window with the image and outputs a file by name.
 /////////////////////////////////////////////////////////////////////////////////
 void display(string name, Mat& const image) {
-	// namedWindow(name, WINDOW_KEEPRATIO);		// Temporarily commented out for
-	// imshow(name, image);						// rapid multi-image processing.
+	 namedWindow(name, WINDOW_KEEPRATIO);		// Temporarily commented out for
+	 imshow(name, image);						// rapid multi-image processing.
 
 	string filename = name + ".jpg";
 	imwrite(filename, image);
-	std::cout << "Saved as " << filename << std::endl;
+	cout << "Saved as " << filename << endl;
 
-	// waitKey(0);
+	 waitKey(0);
 }
 
 
@@ -165,8 +165,23 @@ Mat hough(Mat& image, double rho = 1.0, double theta = 3, int threshold = 150) {
 	vector<Vec2f> lines;
 	HoughLines(image, lines, rho, theta, threshold, 0, 0); // in, lines out, rho, theta, threshold, srn, stn, min theta, max theta
 
-	//from https://docs.opencv.org/master/d5/df9/samples_2cpp_2tutorial_code_2ImgTrans_2houghlines_8cpp-example.html#a8
-	// Draw the lines
+	//pruning would go here, before drawing lines
+	//for each line in lines,
+		//check against every other line, to see if they're within some amount of each other
+		//(need to know more about how lines are stored/made...)
+		//if they are, prune the matched line from lines
+
+	//make the lines into something useful - line segments with start and end coordinates
+	struct LineSegment {
+		Point start;
+		Point end;
+	};
+
+	//adapted from:
+	//https://docs.opencv.org/master/d5/df9/samples_2cpp_2tutorial_code_2ImgTrans_2houghlines_8cpp-example.html#a8
+	//turn the lines from Hough xform into useful line segments
+	vector<LineSegment> lineSegs;
+	lineSegs.resize(lines.size());
 	for (size_t i = 0; i < lines.size(); i++)
 	{
 		float rho = lines[i][0], theta = lines[i][1];
@@ -177,8 +192,73 @@ Mat hough(Mat& image, double rho = 1.0, double theta = 3, int threshold = 150) {
 		pt1.y = cvRound(y0 + 1000 * (a));
 		pt2.x = cvRound(x0 - 1000 * (-b));
 		pt2.y = cvRound(y0 - 1000 * (a));
-		line(result, pt1, pt2, Scalar(0, 0, 255), 3, LINE_AA);
+		lineSegs[i].start = pt1;
+		lineSegs[i].end = pt2;
+
+		//just testing if we get the same thing from linesegs vs the original code
+		//line(result, lineSegs[i].start, lineSegs[i].end, Scalar(0, 0, 255), 3, LINE_AA);
+		//yay, it works!
 	}
+
+	//for testing before/after results of line pruning
+	cerr << "lines before pruning: " << lineSegs.size() << endl;
+	 //comment in to see Hough lines before prune
+	for (int i = 0; i < lineSegs.size(); i++) {
+		line(result, lineSegs[i].start, lineSegs[i].end, Scalar(0, 0, 255), 3, LINE_AA);
+	}
+	display("_preprune", result);
+	
+
+	//prune similar lines
+	//a similar comparison could also be used to see how far apart lines are...
+	double thresh = image.rows * 0.01; //1% of image height. Need to see how big boxes generally are compared to overall image
+	double xThresh; //or do with x and y thresholds, instead of a general one?
+	double yThresh;
+	cerr << "threshold: " << thresh << endl;
+	for (int L = 0; L < lineSegs.size()-1; L++) { // -1 because last element has nothing to compare to
+	//for (int L = lineSegs.size() - 1; L > 0; L--) { //wonder if better lines are stored near the end of the vector?
+														//still not sure. It does keep some different lines, though
+	//so start with the best in back as the reference line...
+		LineSegment curLine = lineSegs[L];
+		//cerr << curLine.start << ", " << curLine.end << endl;
+		for (int i = L+1; i < lineSegs.size()-1; i++) {
+		//for (int i = 0; i < L - 1; i++) { //wonder if better lines are stored near the end of the vector?
+		//and start comparing from the worst lines in the front?
+			LineSegment next = lineSegs[i];
+			//cerr << "comparing to line " << i << endl;
+			//cerr << next.start << ", " << next.end << endl;
+			double xDiff = abs(curLine.start.x - next.start.x);
+			double yDiff = abs(curLine.end.y - next.end.y);
+			//cerr << "xDiff: " << xDiff << ", yDiff: " << yDiff << endl;
+			if (xDiff < thresh || yDiff < thresh) {
+				lineSegs.erase(lineSegs.begin() + i); //remove the line, takes an iterator for the index position
+				//L--; //only if going backwards
+			}
+		}
+	}
+	cerr << "Lines after pruning: " << lineSegs.size() << endl;
+
+	//finally, draw the remaining lines
+	for (int i = 0; i < lineSegs.size(); i++) {
+		line(result, lineSegs[i].start, lineSegs[i].end, Scalar(0, 255, 0), 3, LINE_AA);
+	}
+
+
+	//from https://docs.opencv.org/master/d5/df9/samples_2cpp_2tutorial_code_2ImgTrans_2houghlines_8cpp-example.html#a8
+	// Draw the lines
+	/*
+	for (size_t i = 0; i < lines.size(); i++)
+	{
+		float rho = lines[i][0], theta = lines[i][1];
+		Point pt1, pt2;
+		double a = cos(theta), b = sin(theta);
+		double x0 = a * rho, y0 = b * rho;
+		pt1.x = cvRound(x0 + 1000 * (-b));
+		pt1.y = cvRound(y0 + 1000 * (a));
+		pt2.x = cvRound(x0 - 1000 * (-b));
+		pt2.y = cvRound(y0 - 1000 * (a));
+		line(result, pt1, pt2, Scalar(0, 0, 255), 3, LINE_AA); //this is the method that actually draws the lines
+	}*/
 	
 	return result;
 }
@@ -302,46 +382,75 @@ void processImage(Mat& image, string filename) {
 	// display(filename + "_gray", result);
 
 	// Saturation/Contrast Pass
-	result = saturate(result, -50);		// Decrease Saturation	- Can pass in second parameter as saturation amount.
-	result = contrast(result, 1);		// Increase Contrast	- Can pass in second parameter as contrast amount.
+
+	//originally -50
+	result = saturate(result, -75);		// Decrease Saturation	- Can pass in second parameter as saturation amount.
+	//originally 1. Note: setting to 1 does NOTHING. It's a scale. If it's one, it keeps the contrast at its current value
+	// < 1 reduces contrast, > 1 increases contrast, 1 maintains contrast
+	result = contrast(result, 2);		// Increase Contrast	- Can pass in second parameter as contrast amount.
 	display(filename + "_satcon1", result);
 
 	// Median Blur
-	result = median(result, 3, 3);
-	display(filename + "_median", result);
+	//result = median(result, 3, 3);
+	//display(filename + "_median", result);
 
 	// Bilat Blur
 	// result = bilat(result, 8, 4, 150);
 	// display(filename + "_bilat", result);
 
 	// Gaussian Blur
-	// result = gaussian(result, 5, 2.0, Size(3,3));
-	// display(filename + "_gauss", result);
+	 result = gaussian(result, 5, 2.0, Size(3,3));
+	 display(filename + "_gauss", result);
+
+	 //another median blur - cleans up a small amount of noise left over from gaussian
+	 result = median(result, 3, 3);
+	 display(filename + "_median-after-gaussian", result);
 
 	// Saturation/Contrast Pass
 	// result = saturate(result, -100);	// Decrease Saturation
 	// result = contrast(result, 2);		// Increase Contrast
 	// display(filename + "_satcon2", result);
 
+	//uncomment to use Canny edge detection
+	/*
 	// Get Canny Edges
-	// Mat cannyImg = canny(result, 50, 80);
-	// display(filename + "_canny", cannyImg);
+	 Mat cannyImg = canny(result, 50, 80);
+	 display(filename + "_canny", cannyImg);
 
+	// Get Contours from Canny Edges
+	Mat contourImg = contour(cannyImg);
+	display(filename + "_contours", cannyImg);
+
+	// Get Hough Lines from Canny Edges
+	Mat lineImg = hough(cannyImg);
+	display(filename + "_lines", lineImg);
+
+	// Get Corners from Canny Edges
+	Mat cornerImg = corner(cannyImg);
+	display(filename + "_corners", cornerImg);
+	*/
+
+	//uncomment to use LaPlacian edge detection
 	// Get Laplacian Edges
 	Mat laplacianImg = laplacian(result, 5);
 	display(filename + "_laplacian", laplacianImg);
 
-	// Get Contours from Canny Edges
-	Mat contourImg = contour(laplacianImg);
+	//temporarily commented out while I refine LaPlacian
+	
+	// Get Contours from LaPlacian Edges
+    Mat contourImg = contour(laplacianImg);
 	display(filename + "_contours", contourImg);
 
-	// Get Hough Lines from Canny Edges
-	Mat lineImg = hough(laplacianImg);
+	// Get Hough Lines from LaPlacian Edges
+	//Mat lineImg = hough(laplacianImg); //original one, with default params
+	Mat lineImg = hough(laplacianImg, 1.65, 7, 260); //rho, theta, threshold = 190 works well with rho = .9
 	display(filename + "_lines", lineImg);
 
-	// Get Corners from Canny Edges
+	/*
+	// Get Corners from LaPlacian Edges
 	Mat cornerImg = corner(laplacianImg);
 	display(filename + "_corners", cornerImg);
+	*/
 }
 
 
@@ -368,14 +477,17 @@ int main(int argc, const char* const argv[]) {
 			}
 		}
 	} else { // Process test.jpg if no files are specified.
-		cout << "Processing 'test.jpg' ..." << endl;
+		//for testing, so we don't have to keep changing "test.jpg" or renaming files:
+		string filename = "full-72.jpg"; //change name of input file here
+		////testing with: full-72, partial-mixedsizes, render_partial, render_mixedlayers
+		cout << "Processing " << filename << "..." << endl;
 
-		Mat inputImage = imread("test.jpg");
+		Mat inputImage = imread(filename);
 		if (inputImage.empty()) {
-			cout << "Unable to process 'test.jpg'" << endl;
+			cout << "Unable to process " << filename << endl;
 		} else {
 			processImage(inputImage, "test");
-			cout << "Processed 'test.jpg' successfully." << endl;
+			cout << "Processed " << filename << " successfully." << endl;
 		}
 	}
 
